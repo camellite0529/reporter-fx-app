@@ -60,17 +60,19 @@
           <div></div>
         </div>
 
-        <div class="actions">
-          <button id="refreshBtn">문안 생성</button>
-          <button id="copyBtn" class="secondary">기사 복사</button>
-        </div>
-      </section>
+       <div class="actions">
+  <button id="refreshBtn">문안 생성</button>
+</div>
 
-      <section class="panel">
-        <h2>자동 생성 기사</h2>
-        <textarea id="article" rows="14" readonly></textarea>
-        <p id="status" class="status">불러오는 중...</p>
-      </section>
+<section class="panel">
+  <div class="panel-head">
+    <h2>자동 생성 기사</h2>
+    <button id="copyBtn" class="secondary">기사 복사</button>
+  </div>
+
+  <p id="status" class="status">불러오는 중...</p>
+  <textarea id="article" readonly>불러오는 중...</textarea>
+</section> 
 
       <section class="panel meta-panel">
         <h2>참고 데이터</h2>
