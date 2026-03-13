@@ -78,25 +78,34 @@
   <fieldset class="article-type-group">
     <legend>기사 유형 선택</legend>
 
-    <label class="article-type-option">
-      <input type="radio" name="article_type" value="intraday" checked />
-      <span>장중 기사</span>
+    <label class="article-type-card">
+      <input type="radio" name="article_type" value="intraday" />
+      <div class="article-type-card-body">
+        <strong>장중 기사</strong>
+        <span>장중 코스피·코스닥·환율 흐름 기사</span>
+      </div>
     </label>
 
-    <label class="article-type-option">
+    <label class="article-type-card">
       <input type="radio" name="article_type" value="opening" />
-      <span>개장 기사</span>
+      <div class="article-type-card-body">
+        <strong>개장 기사</strong>
+        <span>환율 개장 수치 중심의 짧은 기사</span>
+      </div>
     </label>
 
-    <label class="article-type-option">
+    <label class="article-type-card">
       <input type="radio" name="article_type" value="weekly_close" />
-      <span>주간 종가 기사</span>
+      <div class="article-type-card-body">
+        <strong>주간 종가 기사</strong>
+        <span>마감 지수와 수급 중심의 종가 기사</span>
+      </div>
     </label>
   </fieldset>
 
   <button id="refreshBtn">문안 생성</button>
-</div> 
-
+</div>
+        
         <p id="status" class="status">기사 유형을 선택한 뒤 문안 생성 버튼을 누르세요.</p>
         <textarea id="article" readonly></textarea>
       </section>
