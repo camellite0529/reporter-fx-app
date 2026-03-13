@@ -37,15 +37,17 @@ async function loadArticle() {
     }
 
     articleEl.value = data.article;
-    metaEl.textContent = JSON.stringify(
-      {
-        generated_at: data.generated_at,
-        bok_reference: data.bok_reference,
-        notes: data.data_notes,
-      },
-      null,
-      2,
-    );
+metaEl.textContent = JSON.stringify(
+  {
+    generated_at: data.generated_at,
+    displayed_at: data.displayed_at,
+    display_delay_minutes: data.display_delay_minutes,
+    bok_reference: data.bok_reference,
+    notes: data.data_notes,
+  },
+  null,
+  2,
+);
     statusEl.textContent = '최신 문안을 불러왔습니다.';
   } catch (error) {
     statusEl.textContent = error.message;
