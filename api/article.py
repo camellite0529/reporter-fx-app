@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import json
 import math
 import os
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
 from typing import Any, Dict
+from zoneinfo import ZoneInfo
 
 import requests
 import yfinance as yf
@@ -16,7 +15,14 @@ app = Flask(__name__)
 SEOUL_TZ = ZoneInfo("Asia/Seoul")
 BOK_KEYSTAT_URL = "https://ecos.bok.or.kr/api/KeyStatisticList/{key}/json/kr/1/20"
 REQUEST_TIMEOUT = 10
-DISPLAY_DELAY_MINUTES = int(os.getenv("DISPLAY_DELAY_MINUTES", "20")) 
+DISPLAY_DELAY_MINUTES = int(os.getenv("DISPLAY_DELAY_MINUTES", "20"))
+
+ARTICLE_TYPE_LABELS = {
+    "intraday": "장중 기사",
+    "opening": "개장 기사",
+    "weekly_close": "주간 종가 기사",
+}
+
 
 def safe_float(value: Any) -> float:
     if value is None:
@@ -39,7 +45,7 @@ def has_value(value: float) -> bool:
 def format_number(value: float, digits: int = 2) -> str:
     if not has_value(value):
         return "[데이터 없음]"
-    return f"{value:,.{digits}f}".replace(",", "")
+    return f"{value:.{digits}f}"
 
 
 def format_signed_abs(value: float, digits: int = 2) -> str:
@@ -84,7 +90,6 @@ def change_words(value: float) -> Dict[str, str]:
             "opened": "[방향 없음]",
             "trend": "[방향 없음]",
         }
-
     if abs(value) < 1e-9:
         return {
             "up_down": "보합",
@@ -92,7 +97,6 @@ def change_words(value: float) -> Dict[str, str]:
             "opened": "보합인",
             "trend": "보합",
         }
-
     return {
         "up_down": "오른" if value > 0 else "내린",
         "rose_fell": "올랐다" if value > 0 else "내렸다",
@@ -126,6 +130,28 @@ def flow_text(flow: str, actor: str) -> str:
     if normalized == "buy":
         return "순매수"
     return "순매도"
+
+
+def flow_text_past(flow: str, actor: str) -> str:
+    normalized = flow.lower()
+    if actor == "individual":
+        if normalized == "sell":
+            return "팔았다"
+        return "사들였다"
+    if normalized == "buy":
+        return "순매수"
+    return "순매도"
+
+
+def institution_advantage_text(flow: str) -> str:
+    return "매수" if flow.lower() == "buy" else "매도"
+
+
+def get_article_type() -> str:
+    article_type = request.args.get("article_type", "").strip().lower()
+    if article_type not in ARTICLE_TYPE_LABELS:
+        raise ValueError("기사 유형을 선택해 주세요.")
+    return article_type
 
 
 def fetch_bok_reference() -> Dict[str, Any]:
@@ -171,10 +197,15 @@ def fetch_yf_quote(symbol: str) -> Dict[str, float]:
     open_price = safe_float(daily["Open"].dropna().iloc[-1])
 
     close_series = daily["Close"].dropna()
+    latest_close = safe_float(close_series.iloc[-1])
+
     if len(close_series) >= 2:
         prev_close = safe_float(close_series.iloc[-2])
     else:
-        prev_close = safe_float(close_series.iloc[-1])
+        prev_close = latest_close
+
+    last_change = latest_close - prev_close
+    last_pct = ((latest_close - prev_close) / prev_close * 100) if prev_close else float("nan")
 
     return {
         "symbol": symbol,
@@ -186,6 +217,9 @@ def fetch_yf_quote(symbol: str) -> Dict[str, float]:
         "open_change": open_price - prev_close,
         "open_pct": ((open_price - prev_close) / prev_close * 100) if prev_close else float("nan"),
         "intraday_change": current - open_price,
+        "last_close": latest_close,
+        "last_change": last_change,
+        "last_pct": last_pct,
     }
 
 
@@ -201,12 +235,15 @@ def collect_market_data() -> Dict[str, Any]:
         "current": jpykrw["current"] * 100,
         "open": jpykrw["open"] * 100,
         "prev_close": jpykrw["prev_close"] * 100,
+        "last_close": jpykrw["last_close"] * 100,
     }
     jpy100["change"] = jpy100["current"] - jpy100["prev_close"]
     jpy100["pct"] = ((jpy100["current"] - jpy100["prev_close"]) / jpy100["prev_close"] * 100) if jpy100["prev_close"] else float("nan")
     jpy100["open_change"] = jpy100["open"] - jpy100["prev_close"]
     jpy100["open_pct"] = ((jpy100["open"] - jpy100["prev_close"]) / jpy100["prev_close"] * 100) if jpy100["prev_close"] else float("nan")
     jpy100["intraday_change"] = jpy100["current"] - jpy100["open"]
+    jpy100["last_change"] = jpy100["last_close"] - jpy100["prev_close"]
+    jpy100["last_pct"] = ((jpy100["last_close"] - jpy100["prev_close"]) / jpy100["prev_close"] * 100) if jpy100["prev_close"] else float("nan")
 
     return {
         "kospi": kospi,
@@ -217,7 +254,7 @@ def collect_market_data() -> Dict[str, Any]:
     }
 
 
-def build_article(data: Dict[str, Any], manual: Dict[str, str]) -> str:
+def build_intraday_article(data: Dict[str, Any], manual: Dict[str, str]) -> str:
     now = data["now"]
     labels = get_time_labels(now)
 
@@ -235,7 +272,7 @@ def build_article(data: Dict[str, Any], manual: Dict[str, str]) -> str:
     usd_intraday_words = change_words(usdkrw["intraday_change"])
     jpy_words = change_words(jpy100["change"])
 
-    article = f"""코스피지수가 장 {labels['session']} {percent_band(kospi['pct'])} {tone_label(kospi['pct'])}를 기록하고 있다.
+    return f"""코스피지수가 장 {labels['session']} {percent_band(kospi['pct'])} {tone_label(kospi['pct'])}를 기록하고 있다.
 {labels['day_text']} {labels['time_text']} 현재 코스피는 전일 대비 {format_signed_abs(kospi['change'], 2)}포인트({format_signed_abs(kospi['pct'], 2)}%) {kospi_words['up_down']} {format_number(kospi['current'], 2)}를 기록 중이다.
 이날 코스피는 전 거래일보다 {format_signed_abs(kospi['open_change'], 2)}포인트({format_signed_abs(kospi['open_pct'], 2)}%) {kospi_open_words['opened']} {format_number(kospi['open'], 2)}에 개장했다.
 유가증권시장에서는 외국인이 {manual['foreigner_amount']}억원을 {flow_text(manual['foreigner_flow'], 'foreigner')} 중이다. 개인은 {manual['individual_amount']}억원어치를 {flow_text(manual['individual_flow'], 'individual')} 있다. 기관은 {manual['institution_amount']}억원을 {flow_text(manual['institution_flow'], 'institution')} 중이다.
@@ -244,7 +281,40 @@ def build_article(data: Dict[str, Any], manual: Dict[str, str]) -> str:
 원·엔 재정환율은 100엔당 {format_number(jpy100['current'], 2)}원으로 전날 종가보다 {format_signed_abs(jpy100['change'], 2)}원 {jpy_words['rose_fell']}.
 같은 시각 원·위안 환율은 {format_number(cnykrw['current'], 2)}원이다."""
 
-    return article
+
+def build_opening_article(data: Dict[str, Any], manual: Dict[str, str]) -> str:
+    usdkrw = data["markets"]["usdkrw"]
+    usd_open_words = change_words(usdkrw["open_change"])
+
+    return f"""미국 달러 대비 원화 환율은 이날 {format_number(usdkrw['open'], 1)}원에 개장했다. 전 거래일보다 {format_signed_abs(usdkrw['open_change'], 1)}원 {usd_open_words['rose_fell']}."""
+
+
+def build_weekly_close_article(data: Dict[str, Any], manual: Dict[str, str]) -> str:
+    now = data["now"]
+    labels = get_time_labels(now)
+
+    kospi = data["markets"]["kospi"]
+    kosdaq = data["markets"]["kosdaq"]
+    usdkrw = data["markets"]["usdkrw"]
+
+    kospi_close_words = change_words(kospi["last_change"])
+    kosdaq_close_words = change_words(kosdaq["last_change"])
+    usd_close_words = change_words(usdkrw["last_change"])
+
+    return f"""코스피지수는 {labels['day_text']} 전 거래일 대비 {format_signed_abs(kospi['last_change'], 2)}포인트({format_number(kospi['last_pct'], 2)}%) {kospi_close_words['opened']} {format_number(kospi['last_close'], 2)}로 마감했다.
+외국인이 {manual['foreigner_amount']}억원을 {flow_text_past(manual['foreigner_flow'], 'foreigner')}했다. 개인은 {manual['individual_amount']}억원어치를 {flow_text_past(manual['individual_flow'], 'individual')}다. 기관은 {manual['institution_amount']}억원 {institution_advantage_text(manual['institution_flow'])} 우위를 보였다.
+코스닥은 전 거래일 대비 {format_signed_abs(kosdaq['last_change'], 2)}포인트({format_number(kosdaq['last_pct'], 2)}%) {kosdaq_close_words['opened']} {format_number(kosdaq['last_close'], 2)}으로 마감했다.
+달러·원 환율은 오후 3시30분 주간 종가 기준 전 거래일보다 {format_signed_abs(usdkrw['last_change'], 1)}원 {usd_close_words['up_down']} {format_number(usdkrw['last_close'], 1)}원으로 마감했다."""
+
+
+def build_article(article_type: str, data: Dict[str, Any], manual: Dict[str, str]) -> str:
+    if article_type == "intraday":
+        return build_intraday_article(data, manual)
+    if article_type == "opening":
+        return build_opening_article(data, manual)
+    if article_type == "weekly_close":
+        return build_weekly_close_article(data, manual)
+    raise ValueError("지원하지 않는 기사 유형입니다.")
 
 
 @app.route("/api/article", methods=["GET"])
@@ -254,27 +324,50 @@ def article() -> Any:
     manual = get_manual_inputs()
 
     try:
+        article_type = get_article_type()
+    except ValueError as exc:
+        return (
+            jsonify(
+                {
+                    "ok": False,
+                    "generated_at": now.isoformat(),
+                    "displayed_at": display_now.isoformat(),
+                    "error": str(exc),
+                }
+            ),
+            400,
+        )
+
+    try:
         markets = collect_market_data()
         bok_reference = fetch_bok_reference()
 
+        article_text = build_article(
+            article_type,
+            {"now": display_now, "markets": markets},
+            manual,
+        )
+
         payload = {
             "ok": True,
+            "article_type": article_type,
+            "article_type_label": ARTICLE_TYPE_LABELS[article_type],
             "generated_at": now.isoformat(),
             "displayed_at": display_now.isoformat(),
             "display_delay_minutes": DISPLAY_DELAY_MINUTES,
             "data_notes": [
                 "장중 현재값·개장가·전일 종가는 yfinance(Yahoo Finance 기반)에서 계산합니다.",
-                f"기사 본문 시각은 데이터 지연을 반영해 실제 생성 시각보다 {DISPLAY_DELAY_MINUTES}분 앞당겨 표기합니다.",
-                "한국은행 ECOS KeyStatisticList는 공식 환율 종가 참고값으로 함께 조회합니다.",
+                f"표시 시각은 실제 생성 시각보다 {DISPLAY_DELAY_MINUTES}분 앞당겨 표기합니다.",
+                "한국은행 ECOS KeyStatisticList는 공식 환율 참고값으로 함께 조회합니다.",
                 "외국인/개인/기관 수급은 현재 수동 입력 칸을 통해 넣도록 했습니다.",
             ],
-            "article": build_article({"now": display_now, "markets": markets}, manual),
+            "article": article_text,
             "markets": markets,
             "bok_reference": bok_reference,
             "manual": manual,
         }
         return jsonify(payload)
-    except Exception as exc:  # pragma: no cover - serverless runtime safety
+    except Exception as exc:
         return (
             jsonify(
                 {
@@ -285,7 +378,7 @@ def article() -> Any:
                 }
             ),
             500,
-        ) 
+        )
 
 
 @app.route("/")
@@ -295,3 +388,4 @@ def root() -> Any:
 
 if __name__ == "__main__":
     app.run(debug=True)
+    
