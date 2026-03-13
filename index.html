@@ -19,11 +19,13 @@
       <section class="panel form-panel">
         <h2>수동 입력</h2>
         <p class="hint">유가증권시장 수급 숫자만 넣으면 바로 복사할 수 있게 구성했습니다.</p>
+
         <div class="grid3">
           <label>
             <span>외국인 금액(억원)</span>
             <input id="foreigner_amount" type="text" placeholder="2485" />
           </label>
+
           <label>
             <span>외국인 방향</span>
             <select id="foreigner_flow">
@@ -31,12 +33,14 @@
               <option value="buy">순매수</option>
             </select>
           </label>
+
           <div></div>
 
           <label>
             <span>개인 금액(억원)</span>
             <input id="individual_amount" type="text" placeholder="32" />
           </label>
+
           <label>
             <span>개인 방향</span>
             <select id="individual_flow">
@@ -44,12 +48,14 @@
               <option value="sell">팔고 있다</option>
             </select>
           </label>
+
           <div></div>
 
           <label>
             <span>기관 금액(억원)</span>
             <input id="institution_amount" type="text" placeholder="877" />
           </label>
+
           <label>
             <span>기관 방향</span>
             <select id="institution_flow">
@@ -57,22 +63,24 @@
               <option value="buy">순매수</option>
             </select>
           </label>
+
           <div></div>
         </div>
 
-       <div class="actions">
-  <button id="refreshBtn">문안 생성</button>
-</div>
+        <div class="actions">
+          <button id="refreshBtn">문안 생성</button>
+        </div>
+      </section>
 
-<section class="panel">
-  <div class="panel-head">
-    <h2>자동 생성 기사</h2>
-    <button id="copyBtn" class="secondary">기사 복사</button>
-  </div>
+      <section class="panel">
+        <div class="panel-head">
+          <h2>자동 생성 기사</h2>
+          <button id="copyBtn" class="secondary">기사 복사</button>
+        </div>
 
-  <p id="status" class="status">불러오는 중...</p>
-  <textarea id="article" readonly>불러오는 중...</textarea>
-</section> 
+        <p id="status" class="status">불러오는 중...</p>
+        <textarea id="article" readonly>불러오는 중...</textarea>
+      </section>
 
       <section class="panel meta-panel">
         <h2>참고 데이터</h2>
