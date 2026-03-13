@@ -75,18 +75,27 @@
         </div>
 
         <div class="article-controls">
-          <label class="article-type-field">
-            <span>기사 유형 선택</span>
-            <select id="article_type">
-              <option value="" selected>선택하세요</option>
-              <option value="intraday">장중 기사</option>
-              <option value="opening">개장 기사</option>
-              <option value="weekly_close">주간 종가 기사</option>
-            </select>
-          </label>
+  <fieldset class="article-type-group">
+    <legend>기사 유형 선택</legend>
 
-          <button id="refreshBtn">문안 생성</button>
-        </div>
+    <label class="article-type-option">
+      <input type="radio" name="article_type" value="intraday" />
+      <span>장중 기사</span>
+    </label>
+
+    <label class="article-type-option">
+      <input type="radio" name="article_type" value="opening" />
+      <span>개장 기사</span>
+    </label>
+
+    <label class="article-type-option">
+      <input type="radio" name="article_type" value="weekly_close" />
+      <span>주간 종가 기사</span>
+    </label>
+  </fieldset>
+
+  <button id="refreshBtn">문안 생성</button>
+</div> 
 
         <p id="status" class="status">기사 유형을 선택한 뒤 문안 생성 버튼을 누르세요.</p>
         <textarea id="article" readonly></textarea>
