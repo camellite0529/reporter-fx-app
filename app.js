@@ -3,13 +3,18 @@ const articleEl = document.getElementById("article");
 const metaEl = document.getElementById("meta");
 const refreshBtn = document.getElementById("refreshBtn");
 const copyBtn = document.getElementById("copyBtn");
-const articleTypeEl = document.getElementById("article_type");
+
+function getSelectedArticleType() {
+  const checked = document.querySelector('input[name="article_type"]:checked');
+  return checked ? checked.value : "";
+}
 
 function buildQuery() {
   const params = new URLSearchParams();
+  const articleType = getSelectedArticleType();
 
-  if (articleTypeEl && articleTypeEl.value) {
-    params.set("article_type", articleTypeEl.value);
+  if (articleType) {
+    params.set("article_type", articleType);
   }
 
   [
@@ -39,7 +44,9 @@ function getArticleTypeLabel(value) {
 }
 
 async function loadArticle() {
-  if (!articleTypeEl.value) {
+  const selectedType = getSelectedArticleType();
+
+  if (!selectedType) {
     statusEl.textContent = "기사 유형을 먼저 선택해 주세요.";
     articleEl.value = "";
     metaEl.textContent = "";
