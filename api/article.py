@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import math
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from typing import Any, Dict
 
@@ -16,7 +16,7 @@ app = Flask(__name__)
 SEOUL_TZ = ZoneInfo("Asia/Seoul")
 BOK_KEYSTAT_URL = "https://ecos.bok.or.kr/api/KeyStatisticList/{key}/json/kr/1/20"
 REQUEST_TIMEOUT = 10
-
+DISPLAY_DELAY_MINUTES = int(os.getenv("DISPLAY_DELAY_MINUTES", "20")) 
 
 def safe_float(value: Any) -> float:
     if value is None:
@@ -250,20 +250,25 @@ def build_article(data: Dict[str, Any], manual: Dict[str, str]) -> str:
 @app.route("/api/article", methods=["GET"])
 def article() -> Any:
     now = datetime.now(SEOUL_TZ)
+    display_now = now - timedelta(minutes=DISPLAY_DELAY_MINUTES)
     manual = get_manual_inputs()
 
     try:
         markets = collect_market_data()
         bok_reference = fetch_bok_reference()
+
         payload = {
             "ok": True,
             "generated_at": now.isoformat(),
+            "displayed_at": display_now.isoformat(),
+            "display_delay_minutes": DISPLAY_DELAY_MINUTES,
             "data_notes": [
                 "장중 현재값·개장가·전일 종가는 yfinance(Yahoo Finance 기반)에서 계산합니다.",
+                f"기사 본문 시각은 데이터 지연을 반영해 실제 생성 시각보다 {DISPLAY_DELAY_MINUTES}분 앞당겨 표기합니다.",
                 "한국은행 ECOS KeyStatisticList는 공식 환율 종가 참고값으로 함께 조회합니다.",
                 "외국인/개인/기관 수급은 현재 수동 입력 칸을 통해 넣도록 했습니다.",
             ],
-            "article": build_article({"now": now, "markets": markets}, manual),
+            "article": build_article({"now": display_now, "markets": markets}, manual),
             "markets": markets,
             "bok_reference": bok_reference,
             "manual": manual,
@@ -275,11 +280,12 @@ def article() -> Any:
                 {
                     "ok": False,
                     "generated_at": now.isoformat(),
+                    "displayed_at": display_now.isoformat(),
                     "error": str(exc),
                 }
             ),
             500,
-        )
+        ) 
 
 
 @app.route("/")
